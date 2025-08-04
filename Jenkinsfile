@@ -1,40 +1,39 @@
 pipeline {
     agent any
-
     environment {
         IMAGE_NAME = "sonu6034/my-app"
         DOCKER_CREDENTIALS_ID = "dockerhub"
     }
 
     stages {
-        stage('Clone') {
+        stage('Clone Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/sonu6034/my-app.git'
+                git 'https://github.com/sonu6034/my-app.git'
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh 'docker build -t $IMAGE_NAME:$BUILD_NUMBER .'
+                    sh "docker build -t $IMAGE_NAME:latest ."
                 }
             }
         }
 
-        stage('Push to Docker Hub') {
+        stage('Push to DockerHub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    script {
-                        sh """
-                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                        docker push $IMAGE_NAME:$BUILD_NUMBER
-                        docker tag $IMAGE_NAME:$BUILD_NUMBER $IMAGE_NAME:latest
-                        docker push $IMAGE_NAME:latest
-                        """
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_CREDENTIALS_ID) {
+                        sh "docker push $IMAGE_NAME:latest"
                     }
                 }
             }
         }
-    }
-}
 
+        stage('Run Container') {
+            steps {
+                script {
+                    sh "docker rm -f my-app || true"
+                    sh "docker run -d --name my-app -p 5555:5000 $IMAGE_NAME:latest"
+                }
+            }
